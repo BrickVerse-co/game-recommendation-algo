@@ -156,12 +156,12 @@ Each eligible game receives a composite score derived from independent signals.
 ### Score Formula
 
 ```text
-score =
+scorealue =
     w1 * genreAffinity
   + w2 * ageBandPopularity
   + w3 * engagementSimilarity
   + w4 * recencyBoost
-  + w5 * sponsoredBoost (capped)
+  + w5 * sponsoredBoost (proportional to sponsoredAmount, capped)
   - w6 * repetitionPenalty
 ```
 
@@ -213,17 +213,23 @@ function recencyBoost(game):
 
 ---
 
-#### Sponsored Boost (Capped)
+#### Sponsored Boost (Amount-Based, Capped)
 
 ```pseudo
 function sponsoredBoost(game):
-    if not game.isSponsored:
+    if not game.isSponsored or game.sponsoredAmount <= 0:
         return 0
 
-    return min(SPONSORED_WEIGHT, SPONSORED_CAP)
+    rawBoost = game.sponsoredAmount * SPONSORED_AMOUNT_MULTIPLIER
+    return min(rawBoost, MAX_SPONSORED_BOOST)
 ```
 
-Sponsored signals **never bypass filtering**.
+**How it works:**
+- Games pay a `sponsoredAmount` (in dollars) for promotion
+- Boost is calculated as: `sponsoredAmount * multiplier`
+- Example: $1000 sponsorship with 0.001 multiplier = 1.0 boost
+- Hard cap ensures no sponsor can dominate regardless of spending
+- Sponsored signals **never bypass filtering**.
 
 ---
 
@@ -274,11 +280,18 @@ function diversify(sortedGames):
 
 Sponsored content is injected **after diversity**, not before.
 
+**Sponsorship Model:**
+- Games pay a `sponsoredAmount` (in dollars) for visibility
+- Higher sponsorship amounts receive proportionally higher boost scores
+- Boost is calculated as: `sponsoredAmount * multiplier`, capped at maximum
+- Example: $1000 = 1.0 boost, $2000 = 2.0 boost (with 0.001 multiplier)
+
 Rules:
 
 - Clearly labeled
 - Hard capped per list
 - Never placed above ineligible content
+- Must pass all safety filters regardless of amount
 
 ```pseudo
 function injectSponsored(games, sponsoredGames):
@@ -348,6 +361,7 @@ Game {
   moderation_score FLOAT
   release_date DATE
   is_sponsored BOOLEAN
+  sponsored_amount DECIMAL(10,2)
 }
 ```
 

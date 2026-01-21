@@ -1,0 +1,19 @@
+{
+  "name": "game-recommendation-algo",
+  "version": "1.0.0",
+  "description": "Privacy-First, Child-Safe Game Recommendation Engine",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js"
+  },
+  "keywords": ["recommendation", "gaming", "privacy", "child-safe"],
+  "author": "Meta Games LLC",
+  "license": "CC-BY-SA-4.0",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  },
+  "dependencies": {}
+}
