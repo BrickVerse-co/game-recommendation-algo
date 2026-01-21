@@ -160,10 +160,11 @@ scorealue =
     w1 * genreAffinity
   + w2 * ageBandPopularity
   + w3 * engagementSimilarity
-  + w4 * recencyBoost
-  + w5 * sponsoredBoost (proportional to sponsoredAmount, capped)
-  - w6 * repetitionPenalty
-```
+  + w4 * favouriteAffinity
+  + w5 * communityRating
+  + w6 * recencyBoost
+  + w7 * sponsoredBoost (proportional to sponsoredAmount, capped)
+  - w8 * repetitionPenalty  - w9 * creationRecencyPenalty```
 
 Weights are configurable and environment-specific.
 
@@ -200,6 +201,44 @@ function engagementSimilarity(game, userHistory):
         similarity(game, history.likedGames)
     )
 ```
+
+---
+
+#### Favourite Affinity
+
+Higher weight for games similar to user's favourited games.
+Favourites are a stronger signal than likes.
+
+```pseudo
+function favouriteAffinity(game, userHistory):
+    favouriteSimilarity = averageSimilarity(game, userHistory.favouritedGames)
+    return favouriteSimilarity * 1.5  // 50% boost for favourites
+```
+
+---
+
+#### Community Rating
+
+Calculates net sentiment from likes and dislikes.
+Returns a score between -1 (all dislikes) and 1 (all likes).
+
+```pseudo
+function communityRating(game):
+    totalReactions = game.likes + game.dislikes
+    
+    if totalReactions == 0:
+        return 0
+    
+    ratio = (game.likes - game.dislikes) / totalReactions
+    confidence = min(1, log(1 + totalReactions) / log(1000))
+    
+    return ratio * confidence
+```
+
+**How it works:**
+- Positive ratio: More likes than dislikes
+- Negative ratio: More dislikes than likes
+- Confidence scaling: More reactions = more reliable rating
 
 ---
 
@@ -242,6 +281,44 @@ function repetitionPenalty(game, userHistory):
 
     return 0
 ```
+
+---
+
+#### Creation Recency Penalty
+
+Penalizes newly created games to protect against scams and low-quality content.
+Penalty decays over time as games prove themselves.
+
+```pseudo
+function creationRecencyPenalty(game):
+    daysSinceCreation = days_between(game.creationDate, now)
+    
+    // Full penalty during grace period (e.g., first 7 days)
+    if daysSinceCreation < CREATION_GRACE_PERIOD_DAYS:
+        return 1.0
+    
+    // No penalty after max penalty period (e.g., 30 days)
+    if daysSinceCreation >= CREATION_PENALTY_MAX_DAYS:
+        return 0
+    
+    // Linear decay between grace period and max days
+    decayRange = CREATION_PENALTY_MAX_DAYS - CREATION_GRACE_PERIOD_DAYS
+    daysInDecay = daysSinceCreation - CREATION_GRACE_PERIOD_DAYS
+    
+    return 1.0 - (daysInDecay / decayRange)
+```
+
+**Example (7-day grace, 30-day decay):**
+- Day 0-7: Full penalty (1.0)
+- Day 14: Half penalty (0.5)
+- Day 21: Quarter penalty (0.25)
+- Day 30+: No penalty (0)
+
+**Purpose:**
+- Prevents pump-and-dump scam games
+- Gives moderation time to review new content
+- Allows legitimate games to build reputation
+- Protects younger users from untested content
 
 ---
 
@@ -348,6 +425,18 @@ UserGenreAggregate {
   genre_id INT
   weight FLOAT
 }
+
+UserFavourites {
+  user_id UUID
+  game_id UUID
+  favourited_at TIMESTAMP
+}
+
+UserLikes {
+  user_id UUID
+  game_id UUID
+  liked_at TIMESTAMP
+}
 ```
 
 ---
@@ -359,9 +448,13 @@ Game {
   game_id UUID
   min_age_band ENUM
   moderation_score FLOAT
+  creation_date TIMESTAMP
   release_date DATE
   is_sponsored BOOLEAN
   sponsored_amount DECIMAL(10,2)
+  likes BIGINT
+  dislikes BIGINT
+  favourites BIGINT
 }
 ```
 
@@ -415,7 +508,7 @@ Each chart is **precomputed periodically** using aggregated, privacy-safe data. 
 | **Top Playing Now**            | Most concurrent players                     | Active sessions                 | `rank by current_sessions count`                                            |
 | **Top Re-Played**              | Games users return to frequently            | User history (aggregated)       | `replay_rate = sessions_per_user / total_players`                           |
 | **Top Earning**                | Highest revenue (if monetization exists)    | Purchases / in-app revenue      | `rank by total_revenue last 30d`                                            |
-| **Top Rated**                  | Games with highest community ratings        | Likes/favorites (aggregated)    | `rating_score = likes / total_plays`                                        |
+| **Top Rated**                  | Games with highest community ratings        | Likes & dislikes (aggregated)  | `rating_score = (likes - dislikes) / (likes + dislikes) * confidence`      |
 | **Trending in X Genre**        | Genre-specific rising games                 | Plays & likes filtered by genre | Similar to Top Trending but restricted to genre                             |
 | **Top VR / Platform-Specific** | Best games for a platform (VR, mobile, etc) | Plays by platform               | Filter by platform + rank by popularity                                     |
 

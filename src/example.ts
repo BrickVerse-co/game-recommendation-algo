@@ -60,11 +60,17 @@ class MockCandidateDataSource implements CandidateDataSource {
       playsByAgeBand.set(AgeBand.AGE_9_TO_12, Math.floor(Math.random() * 15000));
       playsByAgeBand.set(AgeBand.AGE_13_PLUS, Math.floor(Math.random() * 20000));
 
+      const releaseDate = new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000);
+      const creationDate = new Date(releaseDate.getTime() - Math.random() * 90 * 24 * 60 * 60 * 1000);
+      const likes = Math.floor(Math.random() * 5000);
+      const dislikes = Math.floor(Math.random() * likes * 0.3); // Dislikes are typically lower
+
       games.push({
         gameId: `game-${sponsored ? 'sponsored-' : ''}${i}`,
         minAgeBand: AgeBand.UNDER_9,
         moderationScore: 0.85 + Math.random() * 0.15,
-        releaseDate: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000),
+        creationDate,
+        releaseDate,
         isSponsored: sponsored,
         sponsoredAmount: sponsored ? Math.floor(Math.random() * 5000) + 500 : 0, // $500-$5500 for sponsored
         genreVector,
@@ -74,7 +80,9 @@ class MockCandidateDataSource implements CandidateDataSource {
         uniquePlayers: Math.floor(Math.random() * 10000),
         currentSessions: Math.floor(Math.random() * 1000),
         totalRevenue: Math.floor(Math.random() * 100000),
-        likes: Math.floor(Math.random() * 5000),
+        likes,
+        dislikes,
+        favourites: Math.floor(likes * (0.1 + Math.random() * 0.2)), // 10-30% of likes become favourites
         totalPlays: Math.floor(Math.random() * 30000),
       });
     }
@@ -91,6 +99,7 @@ class MockChartDataSource implements ChartDataSource {
     ageBand: AgeBand,
     platform: Platform
   ): Promise<GameMetrics> {
+    const likes = Math.floor(Math.random() * 5000);
     return {
       playsLast7Days: Math.floor(Math.random() * 5000),
       playsPrev7Days: Math.floor(Math.random() * 4000),
@@ -99,7 +108,9 @@ class MockChartDataSource implements ChartDataSource {
       uniquePlayers: Math.floor(Math.random() * 10000),
       currentSessions: Math.floor(Math.random() * 1000),
       totalRevenue: Math.floor(Math.random() * 100000),
-      likes: Math.floor(Math.random() * 5000),
+      likes,
+      dislikes: Math.floor(Math.random() * likes * 0.3),
+      favourites: Math.floor(likes * (0.1 + Math.random() * 0.2)),
       totalPlays: Math.floor(Math.random() * 30000),
     };
   }
@@ -147,6 +158,7 @@ async function example() {
   const userHistory: UserHistory = {
     longPlayGames: ['game-1', 'game-5', 'game-10'],
     likedGames: ['game-2', 'game-7', 'game-12'],
+    favouritedGames: ['game-1', 'game-7'], // Subset of liked games
     heavilyPlayed: new Set(['game-1']),
   };
 

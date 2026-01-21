@@ -34,6 +34,8 @@ export interface GameMetrics {
   currentSessions: number;
   totalRevenue: number;
   likes: number;
+  dislikes: number;
+  favourites: number;
   totalPlays: number;
 }
 
@@ -283,11 +285,15 @@ export class ChartGenerator {
         platform
       );
 
-      if (metrics.totalPlays === 0) {
+      const totalReactions = metrics.likes + metrics.dislikes;
+      if (totalReactions === 0) {
         continue;
       }
 
-      const ratingScore = metrics.likes / metrics.totalPlays;
+      // Community rating: (likes - dislikes) / total, weighted by volume
+      const ratio = (metrics.likes - metrics.dislikes) / totalReactions;
+      const confidence = Math.min(1, Math.log(1 + totalReactions) / Math.log(1000));
+      const ratingScore = ratio * confidence;
 
       chartList.push({
         gameId: game.gameId,

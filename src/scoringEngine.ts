@@ -38,18 +38,24 @@ export class ScoringEngine {
         ),
         ageBandPopularity: this.computeAgeBandPopularity(game, userContext.ageBand),
         engagementSimilarity: this.computeEngagementSimilarity(game, userHistory),
+        favouriteAffinity: this.computeFavouriteAffinity(game, userHistory),
+        communityRating: this.computeCommunityRating(game),
         recencyBoost: this.computeRecencyBoost(game),
         sponsoredBoost: this.computeSponsoredBoost(game),
         repetitionPenalty: this.computeRepetitionPenalty(game, userHistory),
+        creationRecencyPenalty: this.computeCreationRecencyPenalty(game),
       };
 
       const score =
         this.config.weights.genreAffinity * breakdown.genreAffinity +
         this.config.weights.ageBandPopularity * breakdown.ageBandPopularity +
         this.config.weights.engagementSimilarity * breakdown.engagementSimilarity +
+        this.config.weights.favouriteAffinity * breakdown.favouriteAffinity +
+        this.config.weights.communityRating * breakdown.communityRating +
         this.config.weights.recencyBoost * breakdown.recencyBoost +
         this.config.weights.sponsoredBoost * breakdown.sponsoredBoost -
-        this.config.weights.repetitionPenalty * breakdown.repetitionPenalty;
+        this.config.weights.repetitionPenalty * breakdown.repetitionPenalty -
+        this.config.weights.creationRecencyPenalty * breakdown.creationRecencyPenalty;
 
       scoredGames.push({ game, score, breakdown });
     }
@@ -139,6 +145,42 @@ export class ScoringEngine {
   }
 
   /**
+   * Compute favourite affinity based on user's favourited games
+   * Favourites are a stronger signal than likes
+   */
+  private computeFavouriteAffinity(game: Game, userHistory: UserHistory): number {
+    const favouriteSimilarity = this.averageSimilarityToList(
+      game,
+      userHistory.favouritedGames
+    );
+
+    // Boost if game is similar to favourited games
+    return favouriteSimilarity * 1.5; // 50% stronger than regular similarity
+  }
+
+  /**
+   * Compute community rating based on likes vs dislikes
+   * Returns a normalized score between -1 and 1
+   */
+  private computeCommunityRating(game: Game): number {
+    const totalReactions = game.likes + game.dislikes;
+
+    if (totalReactions === 0) {
+      return 0; // No data
+    }
+
+    // Calculate ratio: (likes - dislikes) / total
+    // This gives a score between -1 (all dislikes) and 1 (all likes)
+    const ratio = (game.likes - game.dislikes) / totalReactions;
+
+    // Apply logarithmic scaling based on total reactions
+    // More reactions = more reliable rating
+    const confidence = Math.min(1, Math.log(1 + totalReactions) / Math.log(1000));
+
+    return ratio * confidence;
+  }
+
+  /**
    * Compute recency boost with exponential decay
    */
   private computeRecencyBoost(game: Game): number {
@@ -173,5 +215,34 @@ export class ScoringEngine {
     }
 
     return 0;
+  }
+
+  /**
+   * Compute creation recency penalty
+   * Penalizes newly created games as potential scams or low-quality content
+   * Penalty decays over time as game proves itself
+   */
+  private computeCreationRecencyPenalty(game: Game): number {
+    const now = new Date();
+    const daysSinceCreation = Math.floor(
+      (now.getTime() - game.creationDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    // Full penalty for games within grace period
+    if (daysSinceCreation < this.config.creationGracePeriodDays) {
+      return 1.0;
+    }
+
+    // No penalty for games older than max penalty days
+    if (daysSinceCreation >= this.config.creationPenaltyMaxDays) {
+      return 0;
+    }
+
+    // Linear decay from grace period to max penalty days
+    const decayRange =
+      this.config.creationPenaltyMaxDays - this.config.creationGracePeriodDays;
+    const daysInDecay = daysSinceCreation - this.config.creationGracePeriodDays;
+
+    return 1.0 - daysInDecay / decayRange;
   }
 }

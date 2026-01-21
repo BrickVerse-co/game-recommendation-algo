@@ -165,9 +165,12 @@ export class RecommendationEngine {
         genreAffinity: 0,
         ageBandPopularity: 0,
         engagementSimilarity: 0,
+        favouriteAffinity: 0,
+        communityRating: 0,
         recencyBoost: 0,
         sponsoredBoost: 0,
         repetitionPenalty: 0,
+        creationRecencyPenalty: 0,
       },
     }));
   }

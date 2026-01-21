@@ -48,6 +48,7 @@ export interface UserContext {
 export interface UserHistory {
   longPlayGames: GameId[];
   likedGames: GameId[];
+  favouritedGames: GameId[];
   heavilyPlayed: Set<GameId>;
 }
 
@@ -58,6 +59,7 @@ export interface Game {
   gameId: GameId;
   minAgeBand: AgeBand;
   moderationScore: number;
+  creationDate: Date;
   releaseDate: Date;
   isSponsored: boolean;
   sponsoredAmount: number; // Amount spent on sponsorship in dollars
@@ -69,6 +71,8 @@ export interface Game {
   currentSessions: number;
   totalRevenue: number;
   likes: number;
+  dislikes: number;
+  favourites: number;
   totalPlays: number;
 }
 
@@ -82,9 +86,12 @@ export interface ScoredGame {
     genreAffinity: number;
     ageBandPopularity: number;
     engagementSimilarity: number;
+    favouriteAffinity: number;
+    communityRating: number;
     recencyBoost: number;
     sponsoredBoost: number;
     repetitionPenalty: number;
+    creationRecencyPenalty: number;
   };
 }
 
@@ -127,12 +134,17 @@ export interface RecommendationConfig {
     genreAffinity: number;
     ageBandPopularity: number;
     engagementSimilarity: number;
+    favouriteAffinity: number;
+    communityRating: number;
     recencyBoost: number;
     sponsoredBoost: number;
     repetitionPenalty: number;
+    creationRecencyPenalty: number;
   };
   moderationThreshold: number;
   recencyDecayDays: number;
+  creationGracePeriodDays: number; // Days before creation penalty starts to decay
+  creationPenaltyMaxDays: number; // Days after creation when penalty reaches zero
   sponsoredAmountMultiplier: number; // Multiplier for sponsored amount to calculate boost
   maxSponsoredBoost: number; // Maximum boost value regardless of sponsored amount
   maxResults: number;
