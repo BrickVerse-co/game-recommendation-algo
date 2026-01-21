@@ -165,7 +165,7 @@ scorealue =
   + w6 * recencyBoost
   + w7 * sponsoredBoost (proportional to sponsoredAmount, capped)
   - w8 * repetitionPenalty  - w9 * creationRecencyPenalty```
-
+```
 Weights are configurable and environment-specific.
 
 ---
